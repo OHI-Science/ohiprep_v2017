@@ -12,7 +12,7 @@ setwd("globalprep/res_cites_signatories/v2017")
 
 ## territory data (territories get same score as administrative country)
 
-territory <- read.csv("../../../../ohi-global/eez/spatial/rgns_list.csv") %>%
+territory <- read.csv("../../../../ohi-global/eez/spatial/regions_list.csv") %>%
   select(rgn_id, admin_rgn_id)
 
 
@@ -35,7 +35,8 @@ cites_terr <- territory %>%
   group_by(admin_rgn_id) %>%
   mutate(resilience_score = mean(resilience_score_tmp, na.rm = TRUE)) %>%
   mutate(date_of_joining = date_of_joining[!is.na(date_of_joining)][1]) %>%
-  ungroup()
+  ungroup() %>%
+  mutate(gapfilled = ifelse(is.na(resilience_score_tmp) & !is.na(resilience_score), 1, 0))
 
 ## check that everything went ok
 summary(cites_terr)  # resilience_score should all be 1
@@ -48,7 +49,7 @@ filter(cites_terr, is.na(resilience_score)) # regions that have not signed
 resil <- cites_terr %>%
   mutate(year = sub(".*(.*?)/", "\\1", date_of_joining)) %>%
   mutate(year = as.numeric(as.character(year))) %>%
-  select(rgn_id, year, resilience_score) %>%
+  select(rgn_id, year, resilience_score, gapfilled) %>%
   mutate(resilience_score = ifelse(is.na(resilience_score), 0, 1))
 
 all_years <- min(resil$year, na.rm=TRUE):2017
@@ -60,15 +61,19 @@ resil_full <- all_combos %>%
   filter(!is.na(year)) %>%
   arrange(rgn_id, year) %>%
   group_by(rgn_id) %>%
-  fill(resilience_score) 
+  fill(resilience_score, gapfilled) 
 
 
 # check by looking at data
-tmp_check <- spread(resil_full, "year", "resilience_score")  
+tmp_check <- spread(select(resil_full, -gapfilled), "year", "resilience_score")  
+tmp_check <- spread(select(resil_full, -resilience_score), "year", "gapfilled")  
 
 resil_final <- resil_full %>%
   mutate(resilience_score = ifelse(is.na(resilience_score), 0, resilience_score)) %>%
+  mutate(gapfilled = ifelse(is.na(gapfilled), 0, gapfilled)) %>%
   filter(year >= 2010) %>%
-  select(rgn_id, year, resilience_score)
+  mutate(method = "territories assigned score of admin country") %>%
+  select(rgn_id, year, resilience_score, gapfilled, method)
 
-write.csv(resil_final, "output/cites.csv", row.names=FALSE)
+write.csv(select(resil_final, rgn_id, year, resilience_score), "output/cites.csv", row.names=FALSE)
+write.csv(select(resil_final, rgn_id, year, gapfilled, method), "output/cites_gf.csv", row.names=FALSE)
