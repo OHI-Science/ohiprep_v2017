@@ -62,3 +62,10 @@ plot(old$w_fis_old, old$w_fis)
 abline(0, 1, col="red")
 
 write.csv(tmp, 'globalprep/fp/v2017/output/wildcaught_weight.csv', row.names=FALSE)
+
+## add gf file (no gapfilling)
+tmp_gf <- tmp %>%
+  mutate(w_fis = 0) %>%
+  select(rgn_id, year, gapfilled=w_fis)
+
+write.csv(tmp_gf, 'globalprep/fp/v2017/output/wildcaught_weight_gf.csv', row.names=FALSE)
